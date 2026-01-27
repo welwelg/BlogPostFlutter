@@ -11,11 +11,20 @@ import 'edit_blog_screen.dart';
 import '../../profile/screens/profile_screen.dart';
 import '../../profile/controllers/profile_controller.dart';
 
-// 👇 Import the Likes Controller
+// Import Likes Controller
 import '../../likes/controllers/likes_controller.dart';
 
 // Search Provider
 final searchQueryProvider = StateProvider<String>((ref) => '');
+
+// 🔹 REALTIME COMMENT COUNT PROVIDER
+final commentCountProvider = StreamProvider.family<int, String>((ref, blogId) {
+  return Supabase.instance.client
+      .from('comments')
+      .stream(primaryKey: ['id'])
+      .eq('blog_id', blogId)
+      .map((data) => data.length); // Bilangin ang rows
+});
 
 class HomeBlogScreen extends ConsumerWidget {
   const HomeBlogScreen({super.key});
@@ -129,7 +138,7 @@ class HomeBlogScreen extends ConsumerWidget {
 }
 
 // ==========================================
-// 👇 BLOG CARD (With Edit, Delete, Toast AND Likes)
+// 👇 BLOG CARD (With Hybrid Refresh Logic)
 // ==========================================
 class BlogCard extends ConsumerWidget {
   final dynamic blog;
@@ -142,11 +151,18 @@ class BlogCard extends ConsumerWidget {
     final isMyBlog = blog.userId == currentUserId;
     final authorProfileAsync = ref.watch(profileProvider(blog.userId));
 
+    // Watch Comment Count
+    final commentCountAsync = ref.watch(commentCountProvider(blog.id));
+
     void navigateToDetail() {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => BlogDetailScreen(blog: blog)),
-      );
+      ).then((_) {
+        // ⚡ FIX: FORCE REFRESH PAGBALIK
+        // Kahit naka-off ang Realtime, mag-uupdate ito.
+        ref.invalidate(commentCountProvider(blog.id));
+      });
     }
 
     return Card(
@@ -192,8 +208,6 @@ class BlogCard extends ConsumerWidget {
                             width: 80, height: 10, color: Colors.grey[200]),
                         error: (_, __) => const Text("Unknown"),
                       ),
-
-                      // DATE AND TIME
                       Text(
                         _formatDateTime(blog.createdAt),
                         style:
@@ -202,14 +216,11 @@ class BlogCard extends ConsumerWidget {
                     ],
                   ),
                 ),
-
-                // 🔹 ACTION MENU (Edit & Delete)
                 if (isMyBlog)
                   PopupMenuButton<String>(
                     icon: const Icon(Icons.more_vert),
                     onSelected: (value) {
                       if (value == 'edit') {
-                        // Navigate to Edit Screen
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -217,7 +228,6 @@ class BlogCard extends ConsumerWidget {
                           ),
                         );
                       } else if (value == 'delete') {
-                        // Show Delete Dialog
                         showDialog(
                           context: context,
                           builder: (ctx) => AlertDialog(
@@ -230,16 +240,11 @@ class BlogCard extends ConsumerWidget {
                                   child: const Text("Cancel")),
                               TextButton(
                                   onPressed: () async {
-                                    // 1. Close Dialog FIRST
                                     Navigator.pop(ctx);
-
-                                    // 2. Perform Delete
                                     try {
                                       await ref
                                           .read(blogControllerProvider.notifier)
                                           .deleteBlog(blog.id);
-
-                                      // 3. SHOW SUCCESS TOAST
                                       if (context.mounted) {
                                         ScaffoldMessenger.of(context)
                                             .showSnackBar(
@@ -280,23 +285,19 @@ class BlogCard extends ConsumerWidget {
                     itemBuilder: (BuildContext context) => [
                       const PopupMenuItem(
                         value: 'edit',
-                        child: Row(
-                          children: [
-                            Icon(Icons.edit, color: Colors.blue),
-                            SizedBox(width: 8),
-                            Text('Edit')
-                          ],
-                        ),
+                        child: Row(children: [
+                          Icon(Icons.edit, color: Colors.blue),
+                          SizedBox(width: 8),
+                          Text('Edit')
+                        ]),
                       ),
                       const PopupMenuItem(
                         value: 'delete',
-                        child: Row(
-                          children: [
-                            Icon(Icons.delete, color: Colors.red),
-                            SizedBox(width: 8),
-                            Text('Delete')
-                          ],
-                        ),
+                        child: Row(children: [
+                          Icon(Icons.delete, color: Colors.red),
+                          SizedBox(width: 8),
+                          Text('Delete')
+                        ]),
                       ),
                     ],
                   ),
@@ -346,23 +347,27 @@ class BlogCard extends ConsumerWidget {
             ),
           ),
 
-          // 🔹 ACTION BAR (NOW WITH FUNCTIONAL LIKE BUTTON)
+          // ACTION BAR
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
             child: Row(
               children: [
-                // 1. Like Button Widget
                 _LikeButton(blogId: blog.id),
-
                 const SizedBox(width: 10),
-
-                // 2. Comment Button
                 TextButton.icon(
                   onPressed: navigateToDetail,
                   icon: const Icon(Icons.chat_bubble_outline,
                       size: 20, color: Colors.grey),
-                  label: const Text("Comment",
-                      style: TextStyle(color: Colors.grey)),
+                  label: commentCountAsync.when(
+                    data: (count) => Text(
+                      count > 0 ? "$count Comments" : "Comment",
+                      style: const TextStyle(color: Colors.grey),
+                    ),
+                    loading: () => const Text("Comment",
+                        style: TextStyle(color: Colors.grey)),
+                    error: (_, __) => const Text("Comment",
+                        style: TextStyle(color: Colors.grey)),
+                  ),
                 ),
               ],
             ),
@@ -374,7 +379,7 @@ class BlogCard extends ConsumerWidget {
 }
 
 // ==========================================
-// 👇 PRIVATE WIDGET: LIKE BUTTON LOGIC
+// 👇 PRIVATE WIDGET: LIKE BUTTON
 // ==========================================
 class _LikeButton extends ConsumerWidget {
   final String blogId;
@@ -383,7 +388,6 @@ class _LikeButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Watch specific controller for THIS blog
     final likeStateAsync = ref.watch(likesControllerProvider(blogId));
 
     return likeStateAsync.when(
@@ -392,13 +396,11 @@ class _LikeButton extends ConsumerWidget {
           onPressed: () {
             ref.read(likesControllerProvider(blogId).notifier).toggleLike();
           },
-          // Change Icon: Filled Red if Liked, Border Grey if Not
           icon: Icon(
             likeState.isLiked ? Icons.favorite : Icons.favorite_border,
             color: likeState.isLiked ? Colors.red : Colors.grey,
             size: 20,
           ),
-          // Change Text: Show Count
           label: Text(
             likeState.count > 0 ? "${likeState.count} Likes" : "Like",
             style: TextStyle(
@@ -409,15 +411,10 @@ class _LikeButton extends ConsumerWidget {
           ),
         );
       },
-      // Loading State (Small spinner)
       loading: () => const SizedBox(
           width: 60,
           height: 30,
-          child: Center(
-              child: SizedBox(
-                  height: 15,
-                  width: 15,
-                  child: CircularProgressIndicator(strokeWidth: 2)))),
+          child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
       error: (err, stack) => const Icon(Icons.error, color: Colors.grey),
     );
   }
@@ -442,17 +439,13 @@ String _formatDateTime(DateTime date) {
     "Nov",
     "Dec"
   ];
-
   final year = localDate.year;
   final month = months[localDate.month - 1];
   final day = localDate.day;
-
   var hour = localDate.hour;
   final minute = localDate.minute.toString().padLeft(2, '0');
   final period = hour >= 12 ? 'PM' : 'AM';
-
   if (hour > 12) hour -= 12;
   if (hour == 0) hour = 12;
-
   return "$month $day, $year • $hour:$minute $period";
 }
