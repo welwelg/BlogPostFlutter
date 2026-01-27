@@ -19,19 +19,17 @@ class CommentRepository {
         .map((data) => data.map((map) => Comment.fromJson(map)).toList());
   }
 
-  // 🔹  Add Comment with Image
+  //  Add Comment with Image
   Future<void> addComment({
     required String blogId,
     required String userId,
     required String content,
-    required XFile? image, // 👈 Added Image Parameter
+    required XFile? image,
   }) async {
     String? imageUrl;
 
-    // 1. Upload Logic (Same as Blog Upload)
+    //  Upload Logic (Same as Blog Upload)
     if (image != null) {
-      // Note: We reuse 'blog_images' bucket for simplicity.
-      // Pwede ka gumawa ng separate bucket like 'comment_images' if gusto mo organized.
       final fileName = 'comments/$userId/${DateTime.now().toIso8601String()}';
 
       if (kIsWeb) {
@@ -51,16 +49,16 @@ class CommentRepository {
       imageUrl = _supabase.storage.from('blog_images').getPublicUrl(fileName);
     }
 
-    // 2. Save to Database
+    //  Save to Database
     await _supabase.from('comments').insert({
       'blog_id': blogId,
       'user_id': userId,
       'comment_text': content,
-      'image_url': imageUrl, // 👈 Save the URL
+      'image_url': imageUrl,
     });
   }
 
-  // 🔹 NEW: Edit/Update Comment
+  // Edit/Update Comment
   Future<void> updateComment({
     required String commentId,
     required String content,
@@ -69,7 +67,7 @@ class CommentRepository {
     try {
       String? imageUrl;
 
-      // 1. Kapag may bagong image, i-upload muna
+      //  Kapag may bagong image, i-upload muna
       if (newImage != null) {
         final userId = _supabase.auth.currentUser!.id;
         final fileName = 'comments/$userId/${DateTime.now().toIso8601String()}';
@@ -92,25 +90,25 @@ class CommentRepository {
         imageUrl = _supabase.storage.from('blog_images').getPublicUrl(fileName);
       }
 
-      // 2. Prepare Data to Update
+      // Prepare Data to Update
       final Map<String, dynamic> updates = {
         'comment_text': content,
         'updated_at': DateTime.now().toIso8601String(),
       };
 
-      // 3. Isama lang ang image_url sa update KUNG may bagong in-upload
+      // Isama lang ang image_url sa update KUNG may bagong in-upload
       if (imageUrl != null) {
         updates['image_url'] = imageUrl;
       }
 
-      // 4. Update Database
+      // Update Database
       await _supabase.from('comments').update(updates).eq('id', commentId);
     } catch (e) {
       throw Exception('Failed to update comment: $e');
     }
   }
 
-  // 🔹 NEW: Delete Comment
+  // Delete Comment
   Future<void> deleteComment(String commentId) async {
     try {
       await _supabase.from('comments').delete().eq('id', commentId);

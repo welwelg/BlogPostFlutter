@@ -29,7 +29,7 @@ class _AddBlogScreenState extends ConsumerState<AddBlogScreen> {
     }
   }
 
-  // FIXED FUNCTION WITH TOAST
+  // FUNCTION WITH TOAST
   void _uploadBlog() async {
     if (_formKey.currentState!.validate()) {
       try {
@@ -41,7 +41,7 @@ class _AddBlogScreenState extends ConsumerState<AddBlogScreen> {
 
         if (!mounted) return;
 
-        // 🔹 SUCCESS TOAST
+        // SUCCESS TOAST
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Row(
@@ -60,7 +60,7 @@ class _AddBlogScreenState extends ConsumerState<AddBlogScreen> {
       } catch (e) {
         if (!mounted) return;
 
-        // 🔹 ERROR TOAST
+        // ERROR TOAST
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
               content: Text('Upload failed: $e'), backgroundColor: Colors.red),

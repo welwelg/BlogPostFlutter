@@ -14,7 +14,6 @@ class Profile {
   factory Profile.fromJson(Map<String, dynamic> json) {
     return Profile(
       id: json['id'],
-      // 👇 DITO TAYO MAG-ADJUST:
       // Map 'display_name' (DB) to 'fullName' (Flutter)
       fullName: json['display_name'],
 

@@ -11,13 +11,16 @@ import 'edit_blog_screen.dart';
 import '../../profile/screens/profile_screen.dart';
 import '../../profile/controllers/profile_controller.dart';
 
-// Import Likes Controller
+// Likes Controller
 import '../../likes/controllers/likes_controller.dart';
+
+// Public Profile Screen
+import '../../profile/screens/public_profile_screen.dart';
 
 // Search Provider
 final searchQueryProvider = StateProvider<String>((ref) => '');
 
-// 🔹 REALTIME COMMENT COUNT PROVIDER
+// REALTIME COMMENT COUNT PROVIDER
 final commentCountProvider = StreamProvider.family<int, String>((ref, blogId) {
   return Supabase.instance.client
       .from('comments')
@@ -36,7 +39,7 @@ class HomeBlogScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Flutter Blog'),
+        title: const Text('My Blog App'),
         actions: [
           IconButton(
             icon: const Icon(Icons.account_circle, size: 28),
@@ -138,7 +141,7 @@ class HomeBlogScreen extends ConsumerWidget {
 }
 
 // ==========================================
-// 👇 BLOG CARD (With Hybrid Refresh Logic)
+// BLOG CARD (With Navigation to Public Profile)
 // ==========================================
 class BlogCard extends ConsumerWidget {
   final dynamic blog;
@@ -154,15 +157,24 @@ class BlogCard extends ConsumerWidget {
     // Watch Comment Count
     final commentCountAsync = ref.watch(commentCountProvider(blog.id));
 
+    // Navigate to Detail (with force refresh fix)
     void navigateToDetail() {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => BlogDetailScreen(blog: blog)),
       ).then((_) {
-        // ⚡ FIX: FORCE REFRESH PAGBALIK
-        // Kahit naka-off ang Realtime, mag-uupdate ito.
         ref.invalidate(commentCountProvider(blog.id));
       });
+    }
+
+    // Navigate to Author Profile
+    void navigateToAuthorProfile() {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => PublicProfileScreen(userId: blog.userId),
+        ),
+      );
     }
 
     return Card(
@@ -173,135 +185,141 @@ class BlogCard extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // AUTHOR HEADER
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                authorProfileAsync.when(
-                  data: (profile) => CircleAvatar(
-                    radius: 18,
-                    backgroundImage: profile?.avatarUrl != null
-                        ? NetworkImage(profile!.avatarUrl!)
-                        : null,
-                    child: profile?.avatarUrl == null
-                        ? const Icon(Icons.person, size: 20)
-                        : null,
+          // AUTHOR HEADER (Clickable)
+          InkWell(
+            onTap: navigateToAuthorProfile, // CLICK ACTION
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  authorProfileAsync.when(
+                    data: (profile) => CircleAvatar(
+                      radius: 18,
+                      backgroundImage: profile?.avatarUrl != null
+                          ? NetworkImage(profile!.avatarUrl!)
+                          : null,
+                      child: profile?.avatarUrl == null
+                          ? const Icon(Icons.person, size: 20)
+                          : null,
+                    ),
+                    loading: () => const CircleAvatar(
+                        radius: 18, child: Icon(Icons.more_horiz)),
+                    error: (_, __) => const CircleAvatar(
+                        radius: 18, child: Icon(Icons.error)),
                   ),
-                  loading: () => const CircleAvatar(
-                      radius: 18, child: Icon(Icons.more_horiz)),
-                  error: (_, __) =>
-                      const CircleAvatar(radius: 18, child: Icon(Icons.error)),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      authorProfileAsync.when(
-                        data: (profile) => Text(
-                          profile?.fullName ?? 'Unknown Author',
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 14),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        authorProfileAsync.when(
+                          data: (profile) => Text(
+                            profile?.fullName ?? 'Unknown Author',
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 14),
+                          ),
+                          loading: () => Container(
+                              width: 80, height: 10, color: Colors.grey[200]),
+                          error: (_, __) => const Text("Unknown"),
                         ),
-                        loading: () => Container(
-                            width: 80, height: 10, color: Colors.grey[200]),
-                        error: (_, __) => const Text("Unknown"),
-                      ),
-                      Text(
-                        _formatDateTime(blog.createdAt),
-                        style:
-                            const TextStyle(fontSize: 12, color: Colors.grey),
-                      ),
-                    ],
+                        Text(
+                          _formatDateTime(blog.createdAt),
+                          style:
+                              const TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                if (isMyBlog)
-                  PopupMenuButton<String>(
-                    icon: const Icon(Icons.more_vert),
-                    onSelected: (value) {
-                      if (value == 'edit') {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => EditBlogScreen(blog: blog),
-                          ),
-                        );
-                      } else if (value == 'delete') {
-                        showDialog(
-                          context: context,
-                          builder: (ctx) => AlertDialog(
-                            title: const Text("Delete Blog?"),
-                            content: const Text(
-                                "Are you sure you want to remove this post?"),
-                            actions: [
-                              TextButton(
-                                  onPressed: () => Navigator.pop(ctx),
-                                  child: const Text("Cancel")),
-                              TextButton(
-                                  onPressed: () async {
-                                    Navigator.pop(ctx);
-                                    try {
-                                      await ref
-                                          .read(blogControllerProvider.notifier)
-                                          .deleteBlog(blog.id);
-                                      if (context.mounted) {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          const SnackBar(
-                                            content: Row(
-                                              children: [
-                                                Icon(Icons.delete,
-                                                    color: Colors.white),
-                                                SizedBox(width: 10),
-                                                Text(
-                                                    "Blog deleted successfully!"),
-                                              ],
+
+                  // Menu (Edit/Delete) - Only if My Blog
+                  if (isMyBlog)
+                    PopupMenuButton<String>(
+                      icon: const Icon(Icons.more_vert),
+                      onSelected: (value) {
+                        if (value == 'edit') {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => EditBlogScreen(blog: blog),
+                            ),
+                          );
+                        } else if (value == 'delete') {
+                          showDialog(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text("Delete Blog?"),
+                              content: const Text(
+                                  "Are you sure you want to remove this post?"),
+                              actions: [
+                                TextButton(
+                                    onPressed: () => Navigator.pop(ctx),
+                                    child: const Text("Cancel")),
+                                TextButton(
+                                    onPressed: () async {
+                                      Navigator.pop(ctx);
+                                      try {
+                                        await ref
+                                            .read(
+                                                blogControllerProvider.notifier)
+                                            .deleteBlog(blog.id);
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            const SnackBar(
+                                              content: Row(
+                                                children: [
+                                                  Icon(Icons.delete,
+                                                      color: Colors.white),
+                                                  SizedBox(width: 10),
+                                                  Text(
+                                                      "Blog deleted successfully!"),
+                                                ],
+                                              ),
+                                              backgroundColor: Colors.green,
+                                              duration: Duration(seconds: 2),
                                             ),
-                                            backgroundColor: Colors.green,
-                                            duration: Duration(seconds: 2),
-                                          ),
-                                        );
+                                          );
+                                        }
+                                      } catch (e) {
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            SnackBar(
+                                                content:
+                                                    Text("Delete failed: $e"),
+                                                backgroundColor: Colors.red),
+                                          );
+                                        }
                                       }
-                                    } catch (e) {
-                                      if (context.mounted) {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          SnackBar(
-                                              content:
-                                                  Text("Delete failed: $e"),
-                                              backgroundColor: Colors.red),
-                                        );
-                                      }
-                                    }
-                                  },
-                                  child: const Text("Delete",
-                                      style: TextStyle(color: Colors.red))),
-                            ],
-                          ),
-                        );
-                      }
-                    },
-                    itemBuilder: (BuildContext context) => [
-                      const PopupMenuItem(
-                        value: 'edit',
-                        child: Row(children: [
-                          Icon(Icons.edit, color: Colors.blue),
-                          SizedBox(width: 8),
-                          Text('Edit')
-                        ]),
-                      ),
-                      const PopupMenuItem(
-                        value: 'delete',
-                        child: Row(children: [
-                          Icon(Icons.delete, color: Colors.red),
-                          SizedBox(width: 8),
-                          Text('Delete')
-                        ]),
-                      ),
-                    ],
-                  ),
-              ],
+                                    },
+                                    child: const Text("Delete",
+                                        style: TextStyle(color: Colors.red))),
+                              ],
+                            ),
+                          );
+                        }
+                      },
+                      itemBuilder: (BuildContext context) => [
+                        const PopupMenuItem(
+                          value: 'edit',
+                          child: Row(children: [
+                            Icon(Icons.edit, color: Colors.blue),
+                            SizedBox(width: 8),
+                            Text('Edit')
+                          ]),
+                        ),
+                        const PopupMenuItem(
+                          value: 'delete',
+                          child: Row(children: [
+                            Icon(Icons.delete, color: Colors.red),
+                            SizedBox(width: 8),
+                            Text('Delete')
+                          ]),
+                        ),
+                      ],
+                    ),
+                ],
+              ),
             ),
           ),
 
@@ -379,7 +397,7 @@ class BlogCard extends ConsumerWidget {
 }
 
 // ==========================================
-// 👇 PRIVATE WIDGET: LIKE BUTTON
+// PRIVATE WIDGET: LIKE BUTTON
 // ==========================================
 class _LikeButton extends ConsumerWidget {
   final String blogId;
@@ -421,7 +439,7 @@ class _LikeButton extends ConsumerWidget {
 }
 
 // ==========================================
-// 👇 HELPER FUNCTION: DATE FORMATTER
+// HELPER FUNCTION: DATE FORMATTER
 // ==========================================
 String _formatDateTime(DateTime date) {
   final localDate = date.toLocal();

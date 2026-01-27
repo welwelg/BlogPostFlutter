@@ -54,7 +54,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       final userId = Supabase.instance.client.auth.currentUser!.id;
       String? avatarUrl;
 
-      // 1. Upload Image (Kung may pinili)
+      //  Upload Image (Kung may pinili)
       if (_imageFile != null) {
         // Gumagamit tayo ng Timestamp sa filename para iwas Cache issue
         final fileName =
@@ -78,7 +78,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         avatarUrl = supabase.storage.from('blog_images').getPublicUrl(fileName);
       }
 
-      // 2. Update Database & Trigger Auto-Reload
+      // Update Database & Trigger Auto-Reload
       await ref.read(profileControllerProvider.notifier).updateProfile(
             fullName: _nameController.text.trim(),
             avatarUrl: avatarUrl,
@@ -132,8 +132,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     radius: 60,
                     backgroundColor: Colors.grey[200],
                     // Logic:
-                    // 1. Kung may piniling local file, yun ang ipakita (Preview).
-                    // 2. Kung wala, ipakita ang galing sa database (URL).
+                    // Kung may piniling local file, yun ang ipakita (Preview).
+                    // Kung wala, ipakita ang galing sa database (URL).
                     backgroundImage: _imageFile != null
                         ? (kIsWeb
                                 ? NetworkImage(_imageFile!.path)

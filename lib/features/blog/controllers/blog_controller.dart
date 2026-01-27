@@ -29,7 +29,7 @@ class BlogController extends StateNotifier<bool> {
 
   BlogController(this._ref, this._blogRepository) : super(false);
 
-  // 🔹 UPLOAD BLOG
+  // UPLOAD BLOG
   Future<void> uploadBlog({
     required String title,
     required String content,
@@ -46,7 +46,7 @@ class BlogController extends StateNotifier<bool> {
         image: image,
       );
 
-      // ⚡ REFRESH LOGIC:
+      // REFRESH LOGIC:
       // Gumagana ito kahit StreamProvider. Irereset niya ang stream connection.
       _ref.invalidate(getAllBlogsProvider);
     } catch (e) {
@@ -57,7 +57,7 @@ class BlogController extends StateNotifier<bool> {
     }
   }
 
-  // 🔹 EDIT BLOG ACTION
+  // EDIT BLOG ACTION
   Future<void> editBlog({
     required String blogId,
     required String title,
@@ -73,7 +73,7 @@ class BlogController extends StateNotifier<bool> {
         image: image,
       );
 
-      // ⚡ Force Refresh Home Screen
+      // Force Refresh Home Screen
       _ref.invalidate(getAllBlogsProvider);
     } catch (e) {
       state = false;
@@ -83,12 +83,12 @@ class BlogController extends StateNotifier<bool> {
     }
   }
 
-  // 🔹 DELETE BLOG
+  // DELETE BLOG
   Future<void> deleteBlog(String blogId) async {
     try {
       await _blogRepository.deleteBlog(blogId);
 
-      // ⚡ REFRESH LOGIC
+      // REFRESH LOGIC
       _ref.invalidate(getAllBlogsProvider);
     } catch (e) {
       rethrow;

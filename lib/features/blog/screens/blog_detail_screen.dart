@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart'; // Image Picker
 import 'package:supabase_flutter/supabase_flutter.dart'; // For Auth check
 
-// Imports - Siguraduhing tama ang path ng mga ito sa project mo
 import '../models/blog_model.dart';
 import '../../comment/controllers/comment_controller.dart';
 import '../../comment/models/comment_model.dart';
@@ -33,7 +32,7 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
     }
   }
 
-  // 🔹 SUBMIT LOGIC (ADD COMMENT)
+  // SUBMIT LOGIC (ADD COMMENT)
   void _submitComment() async {
     if (_commentController.text.isEmpty && _selectedImage == null) return;
 
@@ -117,7 +116,7 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
                           TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 10),
 
-                  // 🔹 COMMENT LIST
+                  // COMMENT LIST
                   commentsAsync.when(
                     data: (comments) {
                       if (comments.isEmpty) {
@@ -217,14 +216,14 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
 }
 
 // ==========================================
-// 👇 SMART WIDGET: Comment Item (Display)
+//  SMART WIDGET: Comment Item (Display)
 // ==========================================
 class CommentItem extends ConsumerWidget {
   final Comment comment;
 
   const CommentItem({super.key, required this.comment});
 
-  // 🔹 EDIT FUNCTION: Opens the Dialog
+  // EDIT FUNCTION: Opens the Dialog
   void _showEditDialog(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
@@ -324,7 +323,7 @@ class CommentItem extends ConsumerWidget {
                   ),
                 ),
 
-                // 🔹 ACTION BUTTONS (Only if I own it)
+                // ACTION BUTTONS (Only if I own it)
                 if (isMyComment) ...[
                   IconButton(
                     icon: const Icon(Icons.edit, size: 20, color: Colors.blue),
@@ -385,7 +384,7 @@ class CommentItem extends ConsumerWidget {
             // CONTENT TEXT
             Text(comment.content),
 
-            // 🔹 EDITED LABEL
+            // EDITED LABEL
             if (comment.updatedAt != null)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
@@ -429,7 +428,7 @@ class CommentItem extends ConsumerWidget {
 }
 
 // ==========================================
-// 👇 NEW WIDGET: EDIT DIALOG (Fixed Overflow)
+// NEW WIDGET: EDIT DIALOG (Fixed Overflow)
 // ==========================================
 class EditCommentDialog extends StatefulWidget {
   final Comment comment;

@@ -5,8 +5,8 @@ class Comment {
   final String content;
   final DateTime createdAt;
   final DateTime? updatedAt;
-  final String? commenterName; // Name of the user who commented
-  final String? imageUrl; // 🖼️ URL of the comment image (if any)
+  final String? commenterName;
+  final String? imageUrl;
 
   Comment({
     required this.id,
@@ -28,11 +28,11 @@ class Comment {
       createdAt: DateTime.parse(map['created_at']),
       updatedAt:
           map['updated_at'] != null ? DateTime.parse(map['updated_at']) : null,
-      // 🔹 TRICKY PART: Kinukuha natin ang name mula sa 'profiles' table join
+      //  Kinukuha natin ang name mula sa 'profiles' table join
       commenterName: (map['profiles'] != null)
           ? map['profiles']['display_name']
           : 'Unknown',
-      imageUrl: map['image_url'], // 🖼️ Get image URL if exists
+      imageUrl: map['image_url'], //  Get image URL if exists
     );
   }
 }

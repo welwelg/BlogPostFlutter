@@ -17,7 +17,7 @@ class ProfileRepository {
     }
   }
 
-  // 🔹 ADDED: UPDATE Profile
+  // UPDATE Profile
   Future<void> updateProfile({
     required String userId,
     String? fullName,
@@ -28,12 +28,12 @@ class ProfileRepository {
         'updated_at': DateTime.now().toIso8601String(),
       };
 
-      // 👇 MAP TO 'display_name'
+      // MAP TO 'display_name'
       if (fullName != null) {
         updates['display_name'] = fullName;
       }
 
-      // 👇 MAP TO 'profile_image'
+      // MAP TO 'profile_image'
       if (avatarUrl != null) {
         updates['profile_image'] = avatarUrl;
       }

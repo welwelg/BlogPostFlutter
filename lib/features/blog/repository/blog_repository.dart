@@ -2,14 +2,14 @@ import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/blog_model.dart';
 import 'package:flutter/foundation.dart'; // Needed for kIsWeb
-import 'package:image_picker/image_picker.dart'; // Needed for XFile
+import 'package:image_picker/image_picker.dart';
 
 class BlogRepository {
   final SupabaseClient _supabase;
 
   BlogRepository(this._supabase);
 
-  // 🔹 READ: Get all blogs
+  // READ: Get all blogs
   Stream<List<Blog>> getAllBlogs() {
     return _supabase
         .from('blogs')
@@ -18,7 +18,7 @@ class BlogRepository {
         .map((data) => data.map((blogMap) => Blog.fromJson(blogMap)).toList());
   }
 
-  // 🔹 CREATE: Upload new blog
+  // CREATE: Upload new blog
   Future<void> uploadBlog({
     required String uid,
     required String title,
@@ -33,7 +33,7 @@ class BlogRepository {
 
       if (kIsWeb) {
         //  Upload Raw Bytes
-        final bytes = await image.readAsBytes(); // 👈 Fix: Read bytes here
+        final bytes = await image.readAsBytes();
         await _supabase.storage.from('blog_images').uploadBinary(
               fileName,
               bytes,
@@ -61,12 +61,12 @@ class BlogRepository {
     });
   }
 
-  // 🔹 UPDATE BLOG
+  // UPDATE BLOG
   Future<void> updateBlog({
     required String blogId,
     required String title,
     required String content,
-    XFile? image, // Optional: Kung null, hindi natin babaguhin ang picture
+    XFile? image,
   }) async {
     String? imageUrl;
 
@@ -105,7 +105,7 @@ class BlogRepository {
     await _supabase.from('blogs').update(updates).eq('id', blogId);
   }
 
-  // 🔹 DELETE: Delete blog
+  // Delete blog
   Future<void> deleteBlog(String blogId) async {
     await _supabase.from('blogs').delete().eq('id', blogId);
   }

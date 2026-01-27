@@ -4,10 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import '../controllers/blog_controller.dart';
-import '../models/blog_model.dart'; // Import Blog Model
+import '../models/blog_model.dart';
 
 class EditBlogScreen extends ConsumerStatefulWidget {
-  final Blog blog; // 👈 Need natin ipasa ang lumang data
+  final Blog blog; //  Need natin ipasa ang lumang data
 
   const EditBlogScreen({super.key, required this.blog});
 
@@ -96,7 +96,7 @@ class _EditBlogScreenState extends ConsumerState<EditBlogScreen> {
                     border: Border.all(color: Colors.grey),
                   ),
                   child: _newImage != null
-                      // A. New Image Selected
+                      //  New Image Selected
                       ? ClipRRect(
                           borderRadius: BorderRadius.circular(10),
                           child: kIsWeb
@@ -106,7 +106,7 @@ class _EditBlogScreenState extends ConsumerState<EditBlogScreen> {
                                   fit: BoxFit.cover),
                         )
                       : widget.blog.imageUrl != null
-                          // B. Existing Image from DB
+                          //  Existing Image from DB
                           ? Stack(
                               fit: StackFit.expand,
                               children: [

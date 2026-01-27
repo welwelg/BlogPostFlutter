@@ -4,32 +4,32 @@ import '../models/comment_model.dart';
 import '../repository/comment_repository.dart';
 import 'package:image_picker/image_picker.dart';
 
-// 1. Repository Provider
+//  Repository Provider
 final commentRepositoryProvider = Provider((ref) {
   return CommentRepository(Supabase.instance.client);
 });
 
-// 2. Stream Provider (Family)
+//  Stream Provider (Family)
 final commentsStreamProvider =
     StreamProvider.family<List<Comment>, String>((ref, blogId) {
   final repository = ref.watch(commentRepositoryProvider);
   return repository.getComments(blogId);
 });
 
-// 3. Controller Provider
+//  Controller Provider
 final commentControllerProvider =
     StateNotifierProvider<CommentController, bool>((ref) {
-  // 👈 IMPORTANTE: Ipasa ang 'ref' dito para magamit sa loob
+  //  IMPORTANTE: Ipasa ang 'ref' dito para magamit sa loob
   return CommentController(ref, ref.watch(commentRepositoryProvider));
 });
 
 class CommentController extends StateNotifier<bool> {
-  final Ref _ref; // 👈 Added Ref here
+  final Ref _ref;
   final CommentRepository _repository;
 
   CommentController(this._ref, this._repository) : super(false);
 
-  // 🔹 ADD COMMENT
+  // ADD COMMENT
   Future<void> addComment(String blogId, String content, XFile? image) async {
     state = true;
     try {
@@ -48,12 +48,11 @@ class CommentController extends StateNotifier<bool> {
     }
   }
 
-  // 🔹 DELETE COMMENT (Fixed)
+  // DELETE COMMENT
   Future<void> deleteComment(String commentId, String blogId) async {
     state = true;
     try {
-      await _repository
-          .deleteComment(commentId); // Gamitin ang _repository direkta
+      await _repository.deleteComment(commentId);
 
       // Refresh the list
       _ref.invalidate(commentsStreamProvider(blogId));
@@ -65,7 +64,7 @@ class CommentController extends StateNotifier<bool> {
     }
   }
 
-  // 🔹 NEW: EDIT COMMENT
+  //  EDIT COMMENT
   Future<void> editComment({
     required String commentId,
     required String newContent,

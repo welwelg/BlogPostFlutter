@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-// 1. STATE MODEL
+// STATE MODEL
 class LikeState {
   final bool isLiked;
   final int count;
@@ -9,13 +9,13 @@ class LikeState {
   LikeState({required this.isLiked, required this.count});
 }
 
-// 2. PROVIDER (Naka autoDispose para fresh data lagi pag login/logout)
+//  PROVIDER (Naka autoDispose para fresh data lagi pag login/logout)
 final likesControllerProvider = StateNotifierProvider.autoDispose
     .family<LikesController, AsyncValue<LikeState>, String>((ref, blogId) {
   return LikesController(blogId);
 });
 
-// 3. CONTROLLER
+// CONTROLLER
 class LikesController extends StateNotifier<AsyncValue<LikeState>> {
   final String blogId;
   final SupabaseClient _supabase = Supabase.instance.client;
@@ -24,12 +24,11 @@ class LikesController extends StateNotifier<AsyncValue<LikeState>> {
     _loadInitialData();
   }
 
-  // 🔹 LOAD DATA
+  // LOAD DATA
   Future<void> _loadInitialData() async {
     try {
       final userId = _supabase.auth.currentUser?.id;
 
-      // ⚠️ FIX: .count() returns 'int' directly in newer versions
       final count = await _supabase
           .from('likes')
           .count(CountOption.exact)
@@ -53,7 +52,7 @@ class LikesController extends StateNotifier<AsyncValue<LikeState>> {
     }
   }
 
-  // 🔹 TOGGLE LIKE
+  // TOGGLE LIKE
   Future<void> toggleLike() async {
     final currentState = state.value;
     if (currentState == null) return;
