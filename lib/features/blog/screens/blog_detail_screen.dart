@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart'; // Image Picker
 import 'package:supabase_flutter/supabase_flutter.dart'; // For Auth check
 
-// Imports
+// Imports - Siguraduhing tama ang path ng mga ito sa project mo
 import '../models/blog_model.dart';
 import '../../comment/controllers/comment_controller.dart';
 import '../../comment/models/comment_model.dart';
@@ -33,7 +33,7 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
     }
   }
 
-  // 🔹 SUBMIT LOGIC
+  // 🔹 SUBMIT LOGIC (ADD COMMENT)
   void _submitComment() async {
     if (_commentController.text.isEmpty && _selectedImage == null) return;
 
@@ -144,7 +144,7 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
             ),
           ),
 
-          // Input Area
+          // Input Area (Bottom)
           Container(
             padding: const EdgeInsets.all(10),
             decoration: const BoxDecoration(
@@ -217,102 +217,68 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
 }
 
 // ==========================================
-// 👇 SMART WIDGET: Comment Item (With Edit & Delete)
+// 👇 SMART WIDGET: Comment Item (Display)
 // ==========================================
 class CommentItem extends ConsumerWidget {
   final Comment comment;
 
   const CommentItem({super.key, required this.comment});
 
-  // 🔹 EDIT DIALOG (With Toast & Reload)
+  // 🔹 EDIT FUNCTION: Opens the Dialog
   void _showEditDialog(BuildContext context, WidgetRef ref) {
-    final editController = TextEditingController(text: comment.content);
-
     showDialog(
       context: context,
-      builder: (ctx) {
-        // Use 'ctx' to avoid confusion with parent 'context'
-        return AlertDialog(
-          title: const Text("Edit Comment"),
-          content: TextField(
-            controller: editController,
-            decoration: const InputDecoration(hintText: "Update your comment"),
-            maxLines: 3,
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text("Cancel"),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final newContent = editController.text.trim();
+      builder: (ctx) => EditCommentDialog(
+        comment: comment,
+        onSave: (newContent, newImage) async {
+          // Logic to save (Text + Image)
+          try {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text("Updating comment..."),
+                duration: Duration(milliseconds: 500),
+              ),
+            );
 
-                // Validation: Only save if text changed
-                if (newContent.isNotEmpty && newContent != comment.content) {
-                  try {
-                    // 1. Close Dialog FIRST
-                    Navigator.pop(ctx);
+            await ref.read(commentControllerProvider.notifier).editComment(
+                  commentId: comment.id,
+                  newContent: newContent,
+                  blogId: comment.blogId,
+                  newImage: newImage,
+                );
 
-                    // 2. Show "Updating..." Toast (Optional feedback)
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text("Updating comment..."),
-                        duration: Duration(milliseconds: 500),
-                      ),
-                    );
-
-                    // 3. CALL CONTROLLER (This saves to DB)
-                    await ref
-                        .read(commentControllerProvider.notifier)
-                        .editComment(
-                          commentId: comment.id,
-                          newContent: newContent,
-                          blogId: comment.blogId, // Required for reload
-                        );
-
-                    // 4. SHOW SUCCESS TOAST
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Row(
-                            children: [
-                              Icon(Icons.check, color: Colors.white),
-                              SizedBox(width: 10),
-                              Text("Comment updated successfully!"),
-                            ],
-                          ),
-                          backgroundColor: Colors.green,
-                        ),
-                      );
-                    }
-                  } catch (e) {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                            content: Text("Failed to update: $e"),
-                            backgroundColor: Colors.red),
-                      );
-                    }
-                  }
-                } else {
-                  Navigator.pop(ctx); // Close if no changes
-                }
-              },
-              child: const Text("Save"),
-            ),
-          ],
-        );
-      },
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Row(
+                    children: [
+                      Icon(Icons.check, color: Colors.white),
+                      SizedBox(width: 10),
+                      Text("Comment updated successfully!"),
+                    ],
+                  ),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            }
+          } catch (e) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                    content: Text("Failed to update: $e"),
+                    backgroundColor: Colors.red),
+              );
+            }
+          }
+        },
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 1. Fetch Profile Data
+    // Fetch Profile & Check Ownership
     final profileAsync = ref.watch(profileProvider(comment.userId));
-
-    // 2. Check Ownership
     final currentUserId = Supabase.instance.client.auth.currentUser?.id;
     final isMyComment = currentUserId == comment.userId;
 
@@ -323,7 +289,7 @@ class CommentItem extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // HEADER
+            // HEADER (Avatar + Name + Buttons)
             Row(
               children: [
                 // AVATAR
@@ -360,16 +326,13 @@ class CommentItem extends ConsumerWidget {
 
                 // 🔹 ACTION BUTTONS (Only if I own it)
                 if (isMyComment) ...[
-                  // EDIT BUTTON
                   IconButton(
                     icon: const Icon(Icons.edit, size: 20, color: Colors.blue),
                     onPressed: () => _showEditDialog(context, ref),
                   ),
-                  // DELETE BUTTON
                   IconButton(
                     icon: const Icon(Icons.delete, size: 20, color: Colors.red),
                     onPressed: () async {
-                      // Confirm Dialog (Optional UX improvement)
                       final confirm = await showDialog<bool>(
                         context: context,
                         builder: (ctx) => AlertDialog(
@@ -419,10 +382,10 @@ class CommentItem extends ConsumerWidget {
 
             const SizedBox(height: 8),
 
-            // CONTENT
+            // CONTENT TEXT
             Text(comment.content),
 
-            // 🔹 EDITED LABEL (Only shows if updatedAt is not null)
+            // 🔹 EDITED LABEL
             if (comment.updatedAt != null)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
@@ -442,7 +405,7 @@ class CommentItem extends ConsumerWidget {
                 ),
               ),
 
-            // IMAGE
+            // COMMENT IMAGE
             if (comment.imageUrl != null)
               Padding(
                 padding: const EdgeInsets.only(top: 8.0),
@@ -461,6 +424,135 @@ class CommentItem extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ==========================================
+// 👇 NEW WIDGET: EDIT DIALOG (Fixed Overflow)
+// ==========================================
+class EditCommentDialog extends StatefulWidget {
+  final Comment comment;
+  final Function(String content, XFile? newImage) onSave;
+
+  const EditCommentDialog({
+    super.key,
+    required this.comment,
+    required this.onSave,
+  });
+
+  @override
+  State<EditCommentDialog> createState() => _EditCommentDialogState();
+}
+
+class _EditCommentDialogState extends State<EditCommentDialog> {
+  late TextEditingController _controller;
+  XFile? _newImage;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.comment.content);
+  }
+
+  Future<void> _pickImage() async {
+    final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
+    if (picked != null) {
+      setState(() => _newImage = picked);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text("Edit Comment"),
+      // 🔹 IMPORTANT FIX: Wrapped in SingleChildScrollView
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Text Input
+            TextField(
+              controller: _controller,
+              decoration: const InputDecoration(
+                hintText: "Update your comment",
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 3,
+            ),
+            const SizedBox(height: 15),
+
+            // Image Preview Area
+            GestureDetector(
+              onTap: _pickImage,
+              child: Container(
+                height: 120,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.shade400),
+                ),
+                child: _newImage != null
+                    // New Image
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: kIsWeb
+                            ? Image.network(_newImage!.path, fit: BoxFit.cover)
+                            : Image.file(File(_newImage!.path),
+                                fit: BoxFit.cover),
+                      )
+                    : widget.comment.imageUrl != null
+                        // Existing Image
+                        ? Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.network(widget.comment.imageUrl!,
+                                    fit: BoxFit.cover),
+                              ),
+                              Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(8),
+                                  color: Colors.black38,
+                                ),
+                                child: const Center(
+                                  child: Icon(Icons.edit,
+                                      color: Colors.white, size: 30),
+                                ),
+                              ),
+                            ],
+                          )
+                        // No Image
+                        : const Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.add_photo_alternate,
+                                  color: Colors.grey, size: 30),
+                              SizedBox(height: 5),
+                              Text("Change Photo",
+                                  style: TextStyle(color: Colors.grey)),
+                            ],
+                          ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text("Cancel"),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            widget.onSave(_controller.text.trim(), _newImage);
+            Navigator.pop(context);
+          },
+          child: const Text("Save"),
+        ),
+      ],
     );
   }
 }

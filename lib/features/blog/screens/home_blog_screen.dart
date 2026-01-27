@@ -1,34 +1,48 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+// Imports
 import '../controllers/blog_controller.dart';
 import '../../auth/controllers/auth_controller.dart';
 import 'add_blog_screen.dart';
 import 'blog_detail_screen.dart';
+import 'edit_blog_screen.dart';
+import '../../profile/screens/profile_screen.dart';
+import '../../profile/controllers/profile_controller.dart';
+
+// Search Provider
+final searchQueryProvider = StateProvider<String>((ref) => '');
 
 class HomeBlogScreen extends ConsumerWidget {
   const HomeBlogScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 1. Listen to the Stream of Blogs
     final blogsAsync = ref.watch(getAllBlogsProvider);
-    // Get current user ID to check ownership
-    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+    final searchQuery = ref.watch(searchQueryProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Flutter Blog'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout),
+            icon: const Icon(Icons.account_circle, size: 28),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ProfileScreen()),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.redAccent),
             onPressed: () {
               ref.read(authControllerProvider.notifier).signOut();
             },
           ),
         ],
       ),
-      // 2. Button to go to Add Page
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           Navigator.push(
@@ -38,96 +52,349 @@ class HomeBlogScreen extends ConsumerWidget {
         },
         child: const Icon(Icons.add),
       ),
-      // 3. Display the List based on State
-      body: blogsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) => Center(child: Text('Error: $err')),
-        data: (blogs) {
-          if (blogs.isEmpty) {
-            return const Center(
-                child: Text('No blogs yet. Be the first to post!'));
-          }
-          return ListView.builder(
-            itemCount: blogs.length,
-            itemBuilder: (context, index) {
-              final blog = blogs[index];
-              final isMyBlog = blog.userId == currentUserId;
-
-              // 👇 Navigation Function (Clean Version)
-              void navigateToDetail() {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => BlogDetailScreen(blog: blog),
-                  ),
-                );
-              }
-
-              return Card(
-                margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                clipBehavior: Clip.antiAlias,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 🖼️ PART 1: IMAGE CLICK
-                    if (blog.imageUrl != null)
-                      GestureDetector(
-                        onTap: navigateToDetail, // Direct Tap sa Image
-                        child: SizedBox(
-                          height: 200,
-                          width: double.infinity,
-                          child: Image.network(
-                            blog.imageUrl!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) =>
-                                const Icon(Icons.broken_image),
-                          ),
-                        ),
-                      ),
-
-                    // 📝 PART 2: TEXT/LISTTILE CLICK
-                    ListTile(
-                      onTap: navigateToDetail, // Direct Tap sa ListTile
-                      title: Text(
-                        blog.title,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 5),
-                          Text(
-                            blog.content,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 5),
-                          Text(
-                            'Posted: ${blog.createdAt.toString().split(' ')[0]}',
-                            style: const TextStyle(
-                                fontSize: 12, color: Colors.grey),
-                          ),
-                        ],
-                      ),
-                      // Delete Button (Hindi maaapektuhan ang navigation)
-                      trailing: isMyBlog
-                          ? IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
-                              onPressed: () {
-                                ref
-                                    .read(blogControllerProvider.notifier)
-                                    .deleteBlog(blog.id);
-                              },
-                            )
-                          : null,
-                    ),
-                  ],
+      body: Column(
+        children: [
+          // SEARCH BAR
+          Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: TextField(
+              onChanged: (value) {
+                ref.read(searchQueryProvider.notifier).state = value;
+              },
+              decoration: InputDecoration(
+                hintText: 'Search blogs...',
+                prefixIcon: const Icon(Icons.search),
+                filled: true,
+                fillColor: Colors.grey[100],
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(30),
+                  borderSide: BorderSide.none,
                 ),
-              );
-            },
-          );
-        },
+                contentPadding: const EdgeInsets.symmetric(vertical: 0),
+              ),
+            ),
+          ),
+
+          // BLOG LIST
+          Expanded(
+            child: blogsAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (err, stack) => Center(child: Text('Error: $err')),
+              data: (blogs) {
+                // Filtering Logic
+                final filteredBlogs = blogs.where((blog) {
+                  final query = searchQuery.toLowerCase();
+                  final title = blog.title.toLowerCase();
+                  final content = blog.content.toLowerCase();
+                  return title.contains(query) || content.contains(query);
+                }).toList();
+
+                if (filteredBlogs.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.search_off,
+                            size: 50, color: Colors.grey),
+                        const SizedBox(height: 10),
+                        Text(
+                          searchQuery.isEmpty
+                              ? 'No blogs yet. Be the first to post!'
+                              : 'No results found for "$searchQuery"',
+                          style: const TextStyle(color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return ListView.builder(
+                  itemCount: filteredBlogs.length,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  itemBuilder: (context, index) {
+                    final blog = filteredBlogs[index];
+                    return BlogCard(blog: blog);
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
+}
+
+// ==========================================
+// 👇 BLOG CARD (With Edit, Delete & SUCCESS TOAST)
+// ==========================================
+class BlogCard extends ConsumerWidget {
+  final dynamic blog;
+
+  const BlogCard({super.key, required this.blog});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+    final isMyBlog = blog.userId == currentUserId;
+    final authorProfileAsync = ref.watch(profileProvider(blog.userId));
+
+    void navigateToDetail() {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => BlogDetailScreen(blog: blog)),
+      );
+    }
+
+    return Card(
+      elevation: 2,
+      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // AUTHOR HEADER
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                authorProfileAsync.when(
+                  data: (profile) => CircleAvatar(
+                    radius: 18,
+                    backgroundImage: profile?.avatarUrl != null
+                        ? NetworkImage(profile!.avatarUrl!)
+                        : null,
+                    child: profile?.avatarUrl == null
+                        ? const Icon(Icons.person, size: 20)
+                        : null,
+                  ),
+                  loading: () => const CircleAvatar(
+                      radius: 18, child: Icon(Icons.more_horiz)),
+                  error: (_, __) =>
+                      const CircleAvatar(radius: 18, child: Icon(Icons.error)),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      authorProfileAsync.when(
+                        data: (profile) => Text(
+                          profile?.fullName ?? 'Unknown Author',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
+                        loading: () => Container(
+                            width: 80, height: 10, color: Colors.grey[200]),
+                        error: (_, __) => const Text("Unknown"),
+                      ),
+
+                      // DATE AND TIME
+                      Text(
+                        _formatDateTime(blog.createdAt),
+                        style:
+                            const TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // 🔹 ACTION MENU (Edit & Delete)
+                if (isMyBlog)
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert),
+                    onSelected: (value) {
+                      if (value == 'edit') {
+                        // Navigate to Edit Screen
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => EditBlogScreen(blog: blog),
+                          ),
+                        );
+                      } else if (value == 'delete') {
+                        // Show Delete Dialog
+                        showDialog(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text("Delete Blog?"),
+                            content: const Text(
+                                "Are you sure you want to remove this post?"),
+                            actions: [
+                              TextButton(
+                                  onPressed: () => Navigator.pop(ctx),
+                                  child: const Text("Cancel")),
+                              TextButton(
+                                  onPressed: () async {
+                                    // 1. Close Dialog FIRST
+                                    Navigator.pop(ctx);
+
+                                    // 2. Perform Delete
+                                    try {
+                                      await ref
+                                          .read(blogControllerProvider.notifier)
+                                          .deleteBlog(blog.id);
+
+                                      // 3. SHOW SUCCESS TOAST
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          const SnackBar(
+                                            content: Row(
+                                              children: [
+                                                Icon(Icons.delete,
+                                                    color: Colors.white),
+                                                SizedBox(width: 10),
+                                                Text(
+                                                    "Blog deleted successfully!"),
+                                              ],
+                                            ),
+                                            backgroundColor: Colors
+                                                .green, // Or Colors.grey[800]
+                                            duration: Duration(seconds: 2),
+                                          ),
+                                        );
+                                      }
+                                    } catch (e) {
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          SnackBar(
+                                              content:
+                                                  Text("Delete failed: $e"),
+                                              backgroundColor: Colors.red),
+                                        );
+                                      }
+                                    }
+                                  },
+                                  child: const Text("Delete",
+                                      style: TextStyle(color: Colors.red))),
+                            ],
+                          ),
+                        );
+                      }
+                    },
+                    itemBuilder: (BuildContext context) => [
+                      const PopupMenuItem(
+                        value: 'edit',
+                        child: Row(
+                          children: [
+                            Icon(Icons.edit, color: Colors.blue),
+                            SizedBox(width: 8),
+                            Text('Edit')
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(Icons.delete, color: Colors.red),
+                            SizedBox(width: 8),
+                            Text('Delete')
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+          ),
+
+          // BLOG IMAGE
+          if (blog.imageUrl != null)
+            GestureDetector(
+              onTap: navigateToDetail,
+              child: SizedBox(
+                height: 250,
+                width: double.infinity,
+                child: Image.network(
+                  blog.imageUrl!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                      color: Colors.grey[200],
+                      child: const Icon(Icons.broken_image)),
+                ),
+              ),
+            ),
+
+          // TITLE & CONTENT
+          InkWell(
+            onTap: navigateToDetail,
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    blog.title,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 18),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    blog.content,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: Colors.grey[800], height: 1.4),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // ACTION BAR
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              children: [
+                Icon(Icons.favorite_border, size: 20, color: Colors.grey),
+                SizedBox(width: 4),
+                Text("Like", style: TextStyle(color: Colors.grey)),
+                SizedBox(width: 20),
+                Icon(Icons.chat_bubble_outline, size: 20, color: Colors.grey),
+                SizedBox(width: 4),
+                Text("Comment", style: TextStyle(color: Colors.grey)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ==========================================
+// 👇 HELPER FUNCTION: DATE FORMATTER
+// ==========================================
+String _formatDateTime(DateTime date) {
+  final localDate = date.toLocal();
+  const months = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec"
+  ];
+
+  final year = localDate.year;
+  final month = months[localDate.month - 1];
+  final day = localDate.day;
+
+  var hour = localDate.hour;
+  final minute = localDate.minute.toString().padLeft(2, '0');
+  final period = hour >= 12 ? 'PM' : 'AM';
+
+  if (hour > 12) hour -= 12;
+  if (hour == 0) hour = 12;
+
+  return "$month $day, $year • $hour:$minute $period";
 }

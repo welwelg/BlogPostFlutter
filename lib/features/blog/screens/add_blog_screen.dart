@@ -29,7 +29,7 @@ class _AddBlogScreenState extends ConsumerState<AddBlogScreen> {
     }
   }
 
-  // FIXED FUNCTION
+  // FIXED FUNCTION WITH TOAST
   void _uploadBlog() async {
     if (_formKey.currentState!.validate()) {
       try {
@@ -39,17 +39,31 @@ class _AddBlogScreenState extends ConsumerState<AddBlogScreen> {
               image: _selectedImage,
             );
 
-        // FIX 1: Check mounted before Success Action
-        if (!mounted) return;
-        Navigator.pop(context);
-      } catch (e) {
-        // FIX 2: Check mounted before Error Action
-        // Ito yung madalas nakakalimutan. Kung wala na ang screen,
-        // wag na magpakita ng SnackBar dahil wala na paglalagyan nito.
         if (!mounted) return;
 
+        // 🔹 SUCCESS TOAST
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Upload failed: $e')),
+          const SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 10),
+                Text("Blog posted successfully!"),
+              ],
+            ),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+
+        Navigator.pop(context); // Close Screen
+      } catch (e) {
+        if (!mounted) return;
+
+        // 🔹 ERROR TOAST
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('Upload failed: $e'), backgroundColor: Colors.red),
         );
       }
     }

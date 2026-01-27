@@ -23,15 +23,24 @@ class ProfileRepository {
     String? fullName,
     String? avatarUrl,
   }) async {
-    // Gumawa ng map para sa updates
-    final updates = <String, dynamic>{
-      'updated_at': DateTime.now().toIso8601String(),
-    };
+    try {
+      final updates = <String, dynamic>{
+        'updated_at': DateTime.now().toIso8601String(),
+      };
 
-    // I-add lang sa map kung may bagong value (para hindi mabura ang luma)
-    if (fullName != null) updates['full_name'] = fullName;
-    if (avatarUrl != null) updates['avatar_url'] = avatarUrl;
+      // 👇 MAP TO 'display_name'
+      if (fullName != null) {
+        updates['display_name'] = fullName;
+      }
 
-    await _supabase.from('profiles').update(updates).eq('id', userId);
+      // 👇 MAP TO 'profile_image'
+      if (avatarUrl != null) {
+        updates['profile_image'] = avatarUrl;
+      }
+
+      await _supabase.from('profiles').update(updates).eq('id', userId);
+    } catch (e) {
+      throw Exception('Update failed: $e');
+    }
   }
 }

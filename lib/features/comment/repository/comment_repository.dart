@@ -64,12 +64,47 @@ class CommentRepository {
   Future<void> updateComment({
     required String commentId,
     required String content,
+    XFile? newImage,
   }) async {
     try {
-      await _supabase.from('comments').update({
+      String? imageUrl;
+
+      // 1. Kapag may bagong image, i-upload muna
+      if (newImage != null) {
+        final userId = _supabase.auth.currentUser!.id;
+        final fileName = 'comments/$userId/${DateTime.now().toIso8601String()}';
+
+        // Upload logic (Same as addComment)
+        if (kIsWeb) {
+          final bytes = await newImage.readAsBytes();
+          await _supabase.storage.from('blog_images').uploadBinary(
+                fileName,
+                bytes,
+                fileOptions: const FileOptions(upsert: true),
+              );
+        } else {
+          await _supabase.storage.from('blog_images').upload(
+                fileName,
+                File(newImage.path),
+                fileOptions: const FileOptions(upsert: true),
+              );
+        }
+        imageUrl = _supabase.storage.from('blog_images').getPublicUrl(fileName);
+      }
+
+      // 2. Prepare Data to Update
+      final Map<String, dynamic> updates = {
         'comment_text': content,
         'updated_at': DateTime.now().toIso8601String(),
-      }).eq('id', commentId);
+      };
+
+      // 3. Isama lang ang image_url sa update KUNG may bagong in-upload
+      if (imageUrl != null) {
+        updates['image_url'] = imageUrl;
+      }
+
+      // 4. Update Database
+      await _supabase.from('comments').update(updates).eq('id', commentId);
     } catch (e) {
       throw Exception('Failed to update comment: $e');
     }

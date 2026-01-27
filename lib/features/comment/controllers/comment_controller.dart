@@ -66,14 +66,16 @@ class CommentController extends StateNotifier<bool> {
   }
 
   // 🔹 NEW: EDIT COMMENT
-  Future<void> editComment(
-      {required String commentId,
-      required String newContent,
-      required String blogId}) async {
+  Future<void> editComment({
+    required String commentId,
+    required String newContent,
+    required String blogId,
+    XFile? newImage,
+  }) async {
     state = true; // Start loading
     try {
       await _repository.updateComment(
-          commentId: commentId, content: newContent);
+          commentId: commentId, content: newContent, newImage: newImage);
 
       // Refresh the list para makita agad ang pagbabago
       _ref.invalidate(commentsStreamProvider(blogId));

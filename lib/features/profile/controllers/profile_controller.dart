@@ -8,15 +8,17 @@ final profileRepositoryProvider = Provider((ref) {
   return ProfileRepository(Supabase.instance.client);
 });
 
-// 2. Profile Provider (GET)
+// 2. Profile Provider (GET Data)
+// Ito ang pinakikinggan ng UI. Kapag in-invalidate ito, automatic mag-uupdate ang screen.
 final profileProvider =
     FutureProvider.family<Profile?, String>((ref, userId) async {
   return ref.read(profileRepositoryProvider).getProfile(userId);
 });
 
-// 3. 🔹 ADDED: Profile Controller (UPDATE)
+// 3. Controller Provider (UPDATE Data)
 final profileControllerProvider =
     StateNotifierProvider<ProfileController, bool>((ref) {
+  // Pass 'ref' para makapag-utos tayo mag-refresh
   return ProfileController(ref);
 });
 
@@ -25,24 +27,28 @@ class ProfileController extends StateNotifier<bool> {
 
   ProfileController(this._ref) : super(false); // false = not loading
 
+  // 🔹 UPDATE LOGIC
   Future<void> updateProfile({String? fullName, String? avatarUrl}) async {
-    state = true; // Start loading
+    state = true; // Loading start
     try {
       final userId = Supabase.instance.client.auth.currentUser!.id;
 
+      // 1. Update sa Database
       await _ref.read(profileRepositoryProvider).updateProfile(
             userId: userId,
             fullName: fullName,
             avatarUrl: avatarUrl,
           );
 
-      // 🔄 Force refresh the profile data para makita agad ang bago
+      // 2. ⚡ MAGIC TRIGGER: Force Refresh!
+      // Sasabihan nito ang lahat ng nakikinig sa profileProvider na kumuha ng bagong data.
+      // Dahil dito, hindi na kailangan mag-refresh ng browser.
       _ref.invalidate(profileProvider(userId));
     } catch (e) {
       state = false;
-      rethrow; // Ipasa ang error sa UI para makita ang Snackbar
+      rethrow;
     } finally {
-      state = false; // Stop loading
+      state = false; // Loading stop
     }
   }
 }
