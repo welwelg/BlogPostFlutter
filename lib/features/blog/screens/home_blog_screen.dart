@@ -11,6 +11,9 @@ import 'edit_blog_screen.dart';
 import '../../profile/screens/profile_screen.dart';
 import '../../profile/controllers/profile_controller.dart';
 
+// 👇 Import the Likes Controller
+import '../../likes/controllers/likes_controller.dart';
+
 // Search Provider
 final searchQueryProvider = StateProvider<String>((ref) => '');
 
@@ -126,7 +129,7 @@ class HomeBlogScreen extends ConsumerWidget {
 }
 
 // ==========================================
-// 👇 BLOG CARD (With Edit, Delete & SUCCESS TOAST)
+// 👇 BLOG CARD (With Edit, Delete, Toast AND Likes)
 // ==========================================
 class BlogCard extends ConsumerWidget {
   final dynamic blog;
@@ -250,8 +253,7 @@ class BlogCard extends ConsumerWidget {
                                                     "Blog deleted successfully!"),
                                               ],
                                             ),
-                                            backgroundColor: Colors
-                                                .green, // Or Colors.grey[800]
+                                            backgroundColor: Colors.green,
                                             duration: Duration(seconds: 2),
                                           ),
                                         );
@@ -344,23 +346,79 @@ class BlogCard extends ConsumerWidget {
             ),
           ),
 
-          // ACTION BAR
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          // 🔹 ACTION BAR (NOW WITH FUNCTIONAL LIKE BUTTON)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
             child: Row(
               children: [
-                Icon(Icons.favorite_border, size: 20, color: Colors.grey),
-                SizedBox(width: 4),
-                Text("Like", style: TextStyle(color: Colors.grey)),
-                SizedBox(width: 20),
-                Icon(Icons.chat_bubble_outline, size: 20, color: Colors.grey),
-                SizedBox(width: 4),
-                Text("Comment", style: TextStyle(color: Colors.grey)),
+                // 1. Like Button Widget
+                _LikeButton(blogId: blog.id),
+
+                const SizedBox(width: 10),
+
+                // 2. Comment Button
+                TextButton.icon(
+                  onPressed: navigateToDetail,
+                  icon: const Icon(Icons.chat_bubble_outline,
+                      size: 20, color: Colors.grey),
+                  label: const Text("Comment",
+                      style: TextStyle(color: Colors.grey)),
+                ),
               ],
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+// ==========================================
+// 👇 PRIVATE WIDGET: LIKE BUTTON LOGIC
+// ==========================================
+class _LikeButton extends ConsumerWidget {
+  final String blogId;
+
+  const _LikeButton({required this.blogId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Watch specific controller for THIS blog
+    final likeStateAsync = ref.watch(likesControllerProvider(blogId));
+
+    return likeStateAsync.when(
+      data: (likeState) {
+        return TextButton.icon(
+          onPressed: () {
+            ref.read(likesControllerProvider(blogId).notifier).toggleLike();
+          },
+          // Change Icon: Filled Red if Liked, Border Grey if Not
+          icon: Icon(
+            likeState.isLiked ? Icons.favorite : Icons.favorite_border,
+            color: likeState.isLiked ? Colors.red : Colors.grey,
+            size: 20,
+          ),
+          // Change Text: Show Count
+          label: Text(
+            likeState.count > 0 ? "${likeState.count} Likes" : "Like",
+            style: TextStyle(
+              color: likeState.isLiked ? Colors.red : Colors.grey,
+              fontWeight:
+                  likeState.isLiked ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+        );
+      },
+      // Loading State (Small spinner)
+      loading: () => const SizedBox(
+          width: 60,
+          height: 30,
+          child: Center(
+              child: SizedBox(
+                  height: 15,
+                  width: 15,
+                  child: CircularProgressIndicator(strokeWidth: 2)))),
+      error: (err, stack) => const Icon(Icons.error, color: Colors.grey),
     );
   }
 }
