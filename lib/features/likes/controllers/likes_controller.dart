@@ -9,7 +9,7 @@ class LikeState {
   LikeState({required this.isLiked, required this.count});
 }
 
-//  PROVIDER (Naka autoDispose para fresh data lagi pag login/logout)
+// PROVIDER
 final likesControllerProvider = StateNotifierProvider.autoDispose
     .family<LikesController, AsyncValue<LikeState>, String>((ref, blogId) {
   return LikesController(blogId);
@@ -20,8 +20,18 @@ class LikesController extends StateNotifier<AsyncValue<LikeState>> {
   final String blogId;
   final SupabaseClient _supabase = Supabase.instance.client;
 
+  //  ADD THIS FLAG
+  bool _mounted = true;
+
   LikesController(this.blogId) : super(const AsyncValue.loading()) {
     _loadInitialData();
+  }
+
+  //  OVERRIDE DISPOSE PARA ALAM NATING PATAY NA
+  @override
+  void dispose() {
+    _mounted = false;
+    super.dispose();
   }
 
   // LOAD DATA
@@ -34,7 +44,6 @@ class LikesController extends StateNotifier<AsyncValue<LikeState>> {
           .count(CountOption.exact)
           .eq('blog_id', blogId);
 
-      // Check if User Liked
       bool isLiked = false;
       if (userId != null) {
         final userLike = await _supabase
@@ -46,9 +55,15 @@ class LikesController extends StateNotifier<AsyncValue<LikeState>> {
         isLiked = userLike != null;
       }
 
-      state = AsyncValue.data(LikeState(isLiked: isLiked, count: count));
+      // CHECK MO MUNA KUNG BUHAY PA BAGO MAG-UPDATE
+      if (_mounted) {
+        state = AsyncValue.data(LikeState(isLiked: isLiked, count: count));
+      }
     } catch (e, st) {
-      state = AsyncValue.error(e, st);
+      if (_mounted) {
+        // Check here too
+        state = AsyncValue.error(e, st);
+      }
     }
   }
 
@@ -67,6 +82,7 @@ class LikesController extends StateNotifier<AsyncValue<LikeState>> {
     final newIsLiked = !oldIsLiked;
     final newCount = newIsLiked ? oldCount + 1 : oldCount - 1;
 
+    // Safe to update here kasi user interaction to (buhay pa screen)
     state = AsyncValue.data(LikeState(isLiked: newIsLiked, count: newCount));
 
     try {
@@ -84,7 +100,11 @@ class LikesController extends StateNotifier<AsyncValue<LikeState>> {
       }
     } catch (e) {
       // Revert if error
-      state = AsyncValue.data(LikeState(isLiked: oldIsLiked, count: oldCount));
+      if (_mounted) {
+        // Check bago mag-revert
+        state =
+            AsyncValue.data(LikeState(isLiked: oldIsLiked, count: oldCount));
+      }
     }
   }
 }

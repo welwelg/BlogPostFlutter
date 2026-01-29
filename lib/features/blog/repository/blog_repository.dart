@@ -27,12 +27,9 @@ class BlogRepository {
   }) async {
     String? imageUrl;
 
-    //  If an image is selected, upload it first
     if (image != null) {
       final fileName = '$uid/${DateTime.now().toIso8601String()}';
-
       if (kIsWeb) {
-        //  Upload Raw Bytes
         final bytes = await image.readAsBytes();
         await _supabase.storage.from('blog_images').uploadBinary(
               fileName,
@@ -40,19 +37,15 @@ class BlogRepository {
               fileOptions: const FileOptions(upsert: true),
             );
       } else {
-        // upload File Object
         await _supabase.storage.from('blog_images').upload(
               fileName,
               File(image.path),
               fileOptions: const FileOptions(upsert: true),
             );
       }
-
-      // Get the public link (Works for both Web and Mobile)
       imageUrl = _supabase.storage.from('blog_images').getPublicUrl(fileName);
     }
 
-    // Save blog details to Database
     await _supabase.from('blogs').insert({
       'user_id': uid,
       'title': title,
@@ -67,12 +60,23 @@ class BlogRepository {
     required String title,
     required String content,
     XFile? image,
+    bool isImageRemoved = false,
   }) async {
-    String? imageUrl;
+    //  Prepare Base Updates
+    final Map<String, dynamic> updates = {
+      'title': title,
+      'content': content,
+      'updated_at': DateTime.now().toIso8601String(),
+    };
 
-    //  Kung may bagong image, upload muna natin
-    if (image != null) {
+    //  LOGIC PARA SA IMAGE
+    if (isImageRemoved) {
+      // Gusto burahin ang image -> Set to NULL
+      updates['image_url'] = null;
+    } else if (image != null) {
+      //  May bagong image -> Upload muna
       final fileName = 'blogs/$blogId/${DateTime.now().millisecondsSinceEpoch}';
+
       if (kIsWeb) {
         await _supabase.storage.from('blog_images').uploadBinary(
               fileName,
@@ -86,22 +90,14 @@ class BlogRepository {
               fileOptions: const FileOptions(upsert: true),
             );
       }
-      imageUrl = _supabase.storage.from('blog_images').getPublicUrl(fileName);
+      // Set new URL
+      final newImageUrl =
+          _supabase.storage.from('blog_images').getPublicUrl(fileName);
+      updates['image_url'] = newImageUrl;
     }
+    // SCENARIO C: Walang ginalaw -> Wala tayong babaguhin sa image_url
 
-    //  Prepare Update Data
-    final updates = {
-      'title': title,
-      'content': content,
-      'updated_at': DateTime.now().toIso8601String(),
-    };
-
-    // Isama lang ang image_url kung may bagong upload
-    if (imageUrl != null) {
-      updates['image_url'] = imageUrl;
-    }
-
-    // Update Supabase
+    // Execute Update
     await _supabase.from('blogs').update(updates).eq('id', blogId);
   }
 

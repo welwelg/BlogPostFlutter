@@ -7,7 +7,7 @@ import '../controllers/blog_controller.dart';
 import '../models/blog_model.dart';
 
 class EditBlogScreen extends ConsumerStatefulWidget {
-  final Blog blog; //  Need natin ipasa ang lumang data
+  final Blog blog;
 
   const EditBlogScreen({super.key, required this.blog});
 
@@ -19,12 +19,13 @@ class _EditBlogScreenState extends ConsumerState<EditBlogScreen> {
   late TextEditingController _titleController;
   late TextEditingController _contentController;
   final _formKey = GlobalKey<FormState>();
+
   XFile? _newImage;
+  bool _isImageDeleted = false; //  Flag para sa delete logic
 
   @override
   void initState() {
     super.initState();
-    // Pre-fill data
     _titleController = TextEditingController(text: widget.blog.title);
     _contentController = TextEditingController(text: widget.blog.content);
   }
@@ -32,14 +33,16 @@ class _EditBlogScreenState extends ConsumerState<EditBlogScreen> {
   Future<void> _pickImage() async {
     final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
     if (picked != null) {
-      setState(() => _newImage = picked);
+      setState(() {
+        _newImage = picked;
+        _isImageDeleted = false;
+      });
     }
   }
 
   void _updateBlog() async {
     if (_formKey.currentState!.validate()) {
       try {
-        // Show Loading (Optional: You can use a loading dialog here)
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
               content: Text('Updating blog...'),
@@ -51,17 +54,17 @@ class _EditBlogScreenState extends ConsumerState<EditBlogScreen> {
               title: _titleController.text,
               content: _contentController.text,
               image: _newImage,
+              isImageRemoved: _isImageDeleted,
             );
 
         if (!mounted) return;
 
-        // Success Toast
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
               content: Text('Blog updated!'), backgroundColor: Colors.green),
         );
 
-        Navigator.pop(context); // Close Screen
+        Navigator.pop(context);
       } catch (e) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -84,7 +87,7 @@ class _EditBlogScreenState extends ConsumerState<EditBlogScreen> {
           key: _formKey,
           child: Column(
             children: [
-              // IMAGE PREVIEW
+              // --- IMAGE PREVIEW LOGIC ---
               GestureDetector(
                 onTap: _pickImage,
                 child: Container(
@@ -96,7 +99,7 @@ class _EditBlogScreenState extends ConsumerState<EditBlogScreen> {
                     border: Border.all(color: Colors.grey),
                   ),
                   child: _newImage != null
-                      //  New Image Selected
+                      //  NEW IMAGE SELECTED
                       ? ClipRRect(
                           borderRadius: BorderRadius.circular(10),
                           child: kIsWeb
@@ -105,23 +108,52 @@ class _EditBlogScreenState extends ConsumerState<EditBlogScreen> {
                               : Image.file(File(_newImage!.path),
                                   fit: BoxFit.cover),
                         )
-                      : widget.blog.imageUrl != null
-                          //  Existing Image from DB
+                      : (widget.blog.imageUrl != null && !_isImageDeleted)
+                          //  EXISTING IMAGE (NOT DELETED)
                           ? Stack(
                               fit: StackFit.expand,
                               children: [
+                                // The Image
                                 ClipRRect(
                                   borderRadius: BorderRadius.circular(10),
                                   child: Image.network(widget.blog.imageUrl!,
                                       fit: BoxFit.cover),
                                 ),
+                                // The EDIT Overlay
                                 Container(
-                                    color: Colors.black38,
-                                    child: const Icon(Icons.edit,
-                                        color: Colors.white, size: 40)),
+                                  color: Colors.black12,
+                                  alignment: Alignment.center,
+                                  child: const Icon(Icons.edit,
+                                      color: Colors.white70, size: 30),
+                                ),
+                                // The REMOVE Button
+                                Positioned(
+                                  top: 5,
+                                  right: 5,
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      setState(() {
+                                        _isImageDeleted = true; // Hide image UI
+                                      });
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.all(4),
+                                      decoration: const BoxDecoration(
+                                          color: Colors.red,
+                                          shape: BoxShape.circle,
+                                          boxShadow: [
+                                            BoxShadow(
+                                                blurRadius: 2,
+                                                color: Colors.black26)
+                                          ]),
+                                      child: const Icon(Icons.close,
+                                          color: Colors.white, size: 18),
+                                    ),
+                                  ),
+                                ),
                               ],
                             )
-                          // C. No Image
+                          //  NO IMAGE / DELETED
                           : const Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
